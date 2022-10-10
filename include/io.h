@@ -17,4 +17,6 @@ namespace HPart{
     };
 }// namespace HPart
 
+#define HPART_IO_BUFFER_SIZE 16384
+
 #endif //HPART_IO_H

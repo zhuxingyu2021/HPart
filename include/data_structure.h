@@ -13,6 +13,8 @@ namespace HPart {
 
     // 图的邻接矩阵
     struct AdjacencyMatrix: public NonCopyable{
+        AdjacencyMatrix() = default;
+
         AdjacencyMatrix(AdjacencyMatrix&& tmp){
             n_vertices = tmp.n_vertices;
             n_edges = tmp.n_edges;
@@ -30,10 +32,10 @@ namespace HPart {
         }
 
         ~AdjacencyMatrix(){
-            delete xadj;
-            delete adjncy;
-            delete w_vertices;
-            delete w_edges;
+            delete[] xadj;
+            delete[] adjncy;
+            delete[] w_vertices;
+            delete[] w_edges;
         }
 
         IndexType n_vertices = 0; // 顶点的数量

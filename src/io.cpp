@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <cassert>
 
 #include "io.h"
 
@@ -16,17 +17,54 @@ ErrorType GraphIO::ReadMetisGraph(std::string_view filename, AdjacencyMatrix &gr
 
     char* line = nullptr;
     size_t len_line = 0;
+    char io_buffer[HPART_IO_BUFFER_SIZE];
+    size_t p_io_buffer = 0;
+    size_t len_io_buffer;
 
-    HPART_EXCEPT_ASSERT(getline(&line, &len_line, file) != -1, goto HAPPENED_IO_ERROR);
-    HPART_EXCEPT_ASSERT(sscanf(line, "%d %d", &graph.n_vertices, &graph.n_edges) == 2, goto HAPPENED_IO_ERROR);
+    if(getline(&line, &len_line, file) == -1){
+        fclose(file); free(line); return IO_ERROR;
+    }
+    if(sscanf(line, "%d %d", &graph.n_vertices, &graph.n_edges) != 2){
+        fclose(file);free(line); return IO_ERROR;
+    }
+    free(line);
 
     graph.xadj = new int[graph.n_vertices + 1];
     std::fill(graph.xadj, graph.xadj + graph.n_vertices + 1, 0);
 
     graph.adjncy = new int[graph.n_edges * 2];
+    std::fill(graph.adjncy, graph.adjncy + graph.n_edges * 2, 0);
 
+    len_io_buffer = fread(io_buffer, sizeof(char), HPART_IO_BUFFER_SIZE, file);
     for(int i = 0; i < graph.n_vertices; ++i){
-        HPART_EXCEPT_ASSERT(getline(&line, &len_line, file) != -1, goto HAPPENED_IO_ERROR);
+        int buf_pos = p_io_buffer;
+        for(;buf_pos<len_io_buffer; ++buf_pos){
+            if(io_buffer[buf_pos] == '\n'){
+                io_buffer[buf_pos] = '\0';
+                break;
+            }
+        }
+        if(buf_pos == len_io_buffer && len_io_buffer == HPART_IO_BUFFER_SIZE){
+            if(p_io_buffer == 0){ // BUFFER SIZE IS TOO SMALL!
+                fclose(file);
+                return IO_ERROR;
+            }
+            fseek(file, p_io_buffer - len_io_buffer, SEEK_CUR);
+            p_io_buffer = 0;
+            len_io_buffer = fread(io_buffer, sizeof(char), HPART_IO_BUFFER_SIZE, file);
+            for (buf_pos = 0; buf_pos < len_io_buffer && io_buffer[buf_pos] != '\n'; ++buf_pos) {
+                if (io_buffer[buf_pos] == '\n') {
+                    io_buffer[buf_pos] = '\0';
+                    break;
+                }
+            }
+        }
+        if(buf_pos == len_io_buffer && len_io_buffer != HPART_IO_BUFFER_SIZE){ //EOF
+            fclose(file);
+            return IO_ERROR;
+        }
+        line = &io_buffer[p_io_buffer];
+        p_io_buffer = buf_pos;
 
         char* adj_str = strtok(line, " ");
         while(adj_str != nullptr){
@@ -46,11 +84,5 @@ ErrorType GraphIO::ReadMetisGraph(std::string_view filename, AdjacencyMatrix &gr
     std::fill(graph.w_edges, graph.w_edges + graph.n_edges, 1);
 
     fclose(file);
-    free(line);
-    return NONE;
-
-HAPPENED_IO_ERROR:
-    fclose(file);
-    free(line);
     return NONE;
 }
